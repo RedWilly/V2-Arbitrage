@@ -104,7 +104,7 @@ To start a proess already running you can you
 pm2 start DOGE
 ```
 
-replace the DOGE with the actual name of the process
+replace the DOGE with the actual name of the process you will like to use
 
 ## Disclaimer
 
