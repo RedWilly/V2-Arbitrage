@@ -1,5 +1,5 @@
 module.exports = {
-  SUPER_ARBIT_ADDRESS: "0xc059F30196596b1e72B2299A909D8d232CAaE797", //arbitrage contract(SuperArbit.sol)
+  SUPER_ARBIT_ADDRESS: "arbitrage_contract_here", //arbitrage contract(SuperArbit.sol)
   FACTORY_ADDRESSES: {
     // Factory contract addresses of chosen DEX'es COREDAO
     icecreamswap: "0x9e6d21e759a7a288b80eef94e4737d313d31c13f",
@@ -10,7 +10,7 @@ module.exports = {
     Kibble: "0xF4bc79D32A7dEfd87c8A9C100FD83206bbF19Af5",
 
   },
-  PIVOT_TOKEN: "0xB7ddC6414bf4F5515b52D8BdD69973Ae205ff101", // Wrapped Token
+  PIVOT_TOKEN: "Wrapped_Token_Address_Here", // Wrapped Token
   PAIRLIST_OUTPUT_FILE: "./pairsList.json",
   MATCHED_PAIRS_OUTPUT_FILE: "./matchedPairs.json",
   MAX_GAS: 2000000,
