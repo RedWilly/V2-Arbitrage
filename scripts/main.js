@@ -1,5 +1,5 @@
 const TelegramBot = require("node-telegram-bot-api");
-const botToken = "5585392261:AAFewOv6uo3b6gXOuRYhs28PbOTd-vDC8OE"; // Replace with your actual Telegram bot token
+const botToken = "Telegram_bot_Token"; // Replace with your actual Telegram bot token
 const bot = new TelegramBot(botToken, { polling: false });
 
 const { generateTriads, addPairReserves, calculateProfit, APPROX_GAS_FEE } = require("./arbUtils");
@@ -10,7 +10,7 @@ const { PIVOT_TOKEN, SUPER_ARBIT_ADDRESS, MATCHED_PAIRS_OUTPUT_FILE, MAX_GAS, MA
 let execCount = 0; // Delete later...
 
 const sendTelegramNotification = (message) => {
-  bot.sendMessage("917200878", message); // Replace "CHAT_ID" with your actual Telegram chat ID
+  bot.sendMessage("CHAT_ID", message); // Replace "CHAT_ID" with your actual Telegram chat ID
 };
 
 
