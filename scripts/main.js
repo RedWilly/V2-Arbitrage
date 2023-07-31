@@ -7,6 +7,8 @@ const hre = require("hardhat");
 const { ethers, network } = require("hardhat");
 const { PIVOT_TOKEN, SUPER_ARBIT_ADDRESS, MATCHED_PAIRS_OUTPUT_FILE, MAX_GAS, MAX_TRADE_INPUT } = require("./config");
 
+const ERC20ABI = require('./ABI/ERC20.json');
+
 let execCount = 0; // Delete later...
 
 const sendTelegramNotification = (message) => {
@@ -19,7 +21,7 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
   const startToken = PIVOT_TOKEN;
   for (const lucrPath of lucrPaths) {
     const pools = lucrPath.pools;
-    amounts = [lucrPath.optimumAmountInBN];
+    let amounts = [lucrPath.optimumAmountInBN];
     for (let i = 0; i < lucrPath.path.length - 1; i++) {
       if (lucrPath.path[i].toLowerCase() < lucrPath.path[i + 1].toLowerCase()) {
         amounts.push("0");
@@ -56,15 +58,15 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
         console.log("New Profit", parseFloat(ethers.utils.formatEther(newProfit)));
         if (newProfit.gt(0)) {
           await router.callStatic.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
-          const tx = router.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
-          console.log("!!!!EXECUTED!!!");
+          const tx = await router.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
+          console.log("!!!! EXECUTED !!!!");
           execCount++;
           // Send a Telegram notification when a trade is executed
           const notificationMessage = `Trade executed!\nProfit: ${parseFloat(ethers.utils.formatEther(newProfit))} WDOGE`;
           sendTelegramNotification(notificationMessage);
 
           // Wait for the transaction to be mined and confirmed before proceeding
-          await tx.wait();
+          await tx.wait(2);
         }
       } catch (error) {
         console.log(error.reason);
@@ -81,17 +83,24 @@ const main = async () => {
   // ---connect to router and other stuff, reorg later---
   const router = await ethers.getContractAt("SuperArbit", SUPER_ARBIT_ADDRESS);
   const signer = await ethers.getSigner();
+  const pivot_token = await ethers.getContractAt(ERC20ABI, PIVOT_TOKEN);
 
   // ---fetching the current gas price from the BSC network---
-  const gasPrice = await ethers.provider.getGasPrice();
+  let gasPrice = await ethers.provider.getGasPrice();
   console.log("Current gas price:", parseFloat(ethers.utils.formatUnits(gasPrice, "gwei")), "gwei");
 
   let triads = generateTriads(MATCHED_PAIRS_OUTPUT_FILE);
   let allLucrPathsPassed = [];
 
-  sendTelegramNotification("WDORE Arbitrage Bot Started");
-  while (true) {
-    const stepSize = 333;
+  sendTelegramNotification("WDOGE Arbitrage Bot Started");
+
+  let findOpportunities = async function() {
+    console.log('Find opportunities triggered.');
+
+    gasPrice = await ethers.provider.getGasPrice();
+    console.log("Current gas price:", parseFloat(ethers.utils.formatUnits(gasPrice, "gwei")), "gwei");
+
+    const stepSize = 50;
     const numOfTriads = triads.length;
     const loopLim = Math.floor(numOfTriads / stepSize);
     console.log(`\nNumber of Triads from JSON:${numOfTriads}, Total number of batches:${loopLim}\n`);
@@ -99,13 +108,14 @@ const main = async () => {
     let triadsSliced;
 
     while (i <= loopLim) {
-      console.log(`Processing batch ${i + 1} of total ${loopLim}`);
+      console.log(`Processing batch ${i + 1} of total ${loopLim + 1}`);
       if (i != loopLim) {
         triadsSliced = triads.slice(i * stepSize, (i + 1) * stepSize);
       } else {
         triadsSliced = triads.slice(i * stepSize, i * stepSize + (numOfTriads % stepSize));
       }
-      const triadsWithRes = await addPairReserves(triadsSliced, router, (batchSize = stepSize * 3));
+      const triadsWithRes = await addPairReserves(triadsSliced, router, (stepSize * 3));
+
       const lucrPaths = calculateProfit(triadsWithRes);
       console.log("Length of lucrative triads in current batch:", lucrPaths.length);
       //-------------------------------------
@@ -117,6 +127,9 @@ const main = async () => {
       i++;
     }
   }
+
+  pivot_token.on('Withdrawal', findOpportunities);
+  findOpportunities();
 };
 
 main().then();
