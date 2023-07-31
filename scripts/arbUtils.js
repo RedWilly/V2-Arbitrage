@@ -74,14 +74,14 @@ const getAmountOut = function (amountIn, res0, res1, r1, ratioScaleFact) {
 };
 
 const calculateProfit = function (triadsWithRes) {
-  lucrPaths = [];
+  let lucrPaths = [];
   for (const triad of triadsWithRes) {
     let reserves = [];
     for (const [i, pool] of triad.pools.entries()) {
       const resPool = triad.reserves[i];
-      let resFirst;
-      let resSecond;
-      if (triad.path[i].toLowerCase() < triad.path[i + 1].toLowerCase()) reserves.push([resPool.reserve0, resPool.reserve1]);
+      if (triad.path[i].toLowerCase() < triad.path[i + 1].toLowerCase()) {
+        reserves.push([resPool.reserve0, resPool.reserve1]);
+      }
       else reserves.push([resPool.reserve1, resPool.reserve0]);
     }
     let res = calcRatio(reserves, R1, R2);
@@ -98,7 +98,7 @@ const calculateProfit = function (triadsWithRes) {
       // populate only profitable triads
       if (expectedProfit.gt(0)) {
         triad.reserves = reserves.map((rs) => rs.map((r) => r.toString()));
-        swapAmounts = getAmountsOut(optAmountIn, reserves, R1, RATIO_SCALE_FACT_BN);
+        let swapAmounts = getAmountsOut(optAmountIn, reserves, R1, RATIO_SCALE_FACT_BN);
         triad.swapAmounts = swapAmounts.map((s) => s.toString());
         triad.ratio = res.ratio.toNumber() / RATIO_SCALE_FACT;
         triad.optimumAmountInBN = optAmountIn.toString();
