@@ -11,6 +11,8 @@ const ERC20ABI = require('./ABI/ERC20.json');
 
 let execCount = 0; // Delete later...
 
+let totalProfitToday = ethers.BigNumber.from(0);
+
 const sendTelegramNotification = (message) => {
   bot.sendMessage("CHAT_ID", message); // Replace "CHAT_ID" with your actual Telegram chat ID
 };
@@ -57,6 +59,8 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
         const newProfit = ethers.BigNumber.from(path.expectedProfitBN).sub(gasCost).add(APPROX_GAS_FEE);
         console.log("New Profit", parseFloat(ethers.utils.formatEther(newProfit)));
         if (newProfit.gt(0)) {
+          totalProfitToday = totalProfitToday.add(newProfit);
+          console.log("Total Profit Today:", parseFloat(ethers.utils.formatEther(totalProfitToday)), "WDOGE");
           await router.callStatic.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           const tx = await router.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           console.log("!!!! EXECUTED !!!!");
@@ -129,6 +133,36 @@ const main = async () => {
   }
 
   pivot_token.on('Withdrawal', findOpportunities);
+
+  const sendTotalProfitToday = () => {
+    const formattedTotalProfit = parseFloat(ethers.utils.formatEther(totalProfitToday));
+    const message = `Total Profit Today: ${formattedTotalProfit} WDOGE`;
+    sendTelegramNotification(message);
+    totalProfitToday = ethers.BigNumber.from(0); // ---reset the total profit to 0 after sending the notification
+  };
+
+  const scheduleDailyNotification = () => {
+    const currentTime = new Date();
+    const targetTime = new Date(currentTime);
+    targetTime.setUTCHours(23, 59, 0, 0); // Set the target time to 11:59 PM GMT+0
+
+    const timeUntilNotification = targetTime - currentTime;
+    if (timeUntilNotification > 0) {
+      setTimeout(() => {
+        sendTotalProfitToday();
+        scheduleDailyNotification(); // Reschedule for the next day
+      }, timeUntilNotification);
+    } else {
+      // If it's already past the target time, schedule for the next day
+      targetTime.setDate(targetTime.getDate() + 1);
+      setTimeout(() => {
+        sendTotalProfitToday();
+        scheduleDailyNotification(); // Next day
+      }, targetTime - new Date());
+    }
+  };
+
+  scheduleDailyNotification();
   findOpportunities();
 };
 
