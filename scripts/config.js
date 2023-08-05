@@ -8,8 +8,9 @@ module.exports = {
     Dogeshrek: "0x7C10a3b7EcD42dd7D79C0b9d58dDB812f92B574A",
     Yoda: "0xAaA04462e35f3e40D798331657cA015169e005d7",
     Kibble: "0xF4bc79D32A7dEfd87c8A9C100FD83206bbF19Af5",
-
   },
+  TELEGRAM_BOT_ID: "",
+  TELEGRAM_CHANNEL: "",
   PIVOT_TOKEN: "Wrapped_Token_Address_Here", // Wrapped Token
   PAIRLIST_OUTPUT_FILE: "./pairsList.json",
   MATCHED_PAIRS_OUTPUT_FILE: "./matchedPairs.json",
