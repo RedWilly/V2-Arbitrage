@@ -11,10 +11,12 @@ const ERC20ABI = require('./ABI/ERC20.json');
 
 let execCount = 0; // Delete later...
 
+let totalProfitToday = ethers.BigNumber.from(0);
+let gasTokenBalance = undefined
+
 const sendTelegramNotification = (message) => {
   bot.sendMessage(TELEGRAM_CHANNEL, message); // Replace "CHAT_ID" with your actual Telegram chat ID
 };
-
 
 const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPrice) {
   console.log("Static batch check starts...");
@@ -57,6 +59,8 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
         const newProfit = ethers.BigNumber.from(path.expectedProfitBN).sub(gasCost).add(APPROX_GAS_FEE);
         console.log("New Profit", parseFloat(ethers.utils.formatEther(newProfit)));
         if (newProfit.gt(0)) {
+          totalProfitToday = totalProfitToday.add(newProfit);
+          //console.log("Total Profit Today:", parseFloat(ethers.utils.formatEther(totalProfitToday)), "WDOGE");
           await router.callStatic.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           const tx = await router.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           console.log("!!!! EXECUTED !!!!");
@@ -88,6 +92,10 @@ const main = async () => {
   // ---fetching the current gas price from the BSC network---
   let gasPrice = await ethers.provider.getGasPrice();
   console.log("Current gas price:", parseFloat(ethers.utils.formatUnits(gasPrice, "gwei")), "gwei");
+
+  // -- fetch current balance
+  let address = (await ethers.getSigner()).address;
+  gasTokenBalance = await ethers.provider.getBalance(address);
 
   let triads = generateTriads(MATCHED_PAIRS_OUTPUT_FILE);
   let allLucrPathsPassed = [];
@@ -143,12 +151,17 @@ const main = async () => {
 
   pivot_token.on('Withdrawal', findOpportunities);
 
-  let totalProfitToday = 0;
-  const sendTotalProfitToday = () => {
+  const sendTotalProfitToday = async () => {
     const formattedTotalProfit = parseFloat(ethers.utils.formatEther(totalProfitToday));
-    const message = `Total Profit Today: ${formattedTotalProfit} WDOGE`;
+
+    let address = (await ethers.getSigner()).address;
+    let currentGasTokenBalance = await ethers.provider.getBalance(address);
+    let usedGas = ethers.utils.formatEther(gasTokenBalance - currentGasTokenBalance);
+
+    const message = `Total Profit Today: ${formattedTotalProfit} WDOGE\nTotal Gas used: ${usedGas} WDOGE`;
     sendTelegramNotification(message);
     totalProfitToday = ethers.BigNumber.from(0); // ---reset the total profit to 0 after sending the notification
+    gasTokenBalance = currentGasTokenBalance;
   };
 
   const scheduleDailyNotification = () => {
