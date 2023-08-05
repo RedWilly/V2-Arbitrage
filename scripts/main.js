@@ -60,7 +60,7 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
         console.log("New Profit", parseFloat(ethers.utils.formatEther(newProfit)));
         if (newProfit.gt(0)) {
           totalProfitToday = totalProfitToday.add(newProfit);
-          //console.log("Total Profit Today:", parseFloat(ethers.utils.formatEther(totalProfitToday)), "WDOGE");
+          console.log("Total Profit Today:", parseFloat(ethers.utils.formatEther(totalProfitToday)), "WDOGE");
           await router.callStatic.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           const tx = await router.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           console.log("!!!! EXECUTED !!!!");
@@ -167,20 +167,20 @@ const main = async () => {
   const scheduleDailyNotification = () => {
     const currentTime = new Date();
     const targetTime = new Date(currentTime);
-    targetTime.setUTCHours(23, 59, 0, 0); // --set the target time to 11:59 PM GMT+0
+    targetTime.setUTCHours(23, 59, 0, 0); // Set the target time to 11:59 PM GMT+0
 
     const timeUntilNotification = targetTime - currentTime;
     if (timeUntilNotification > 0) {
       setTimeout(() => {
         sendTotalProfitToday();
-        scheduleDailyNotification(); // --reschedule for the next day
+        scheduleDailyNotification(); // Reschedule for the next day
       }, timeUntilNotification);
     } else {
-      // --if it's already past the target time, schedule for the next day
+      // If it's already past the target time, schedule for the next day
       targetTime.setDate(targetTime.getDate() + 1);
       setTimeout(() => {
         sendTotalProfitToday();
-        scheduleDailyNotification(); // --next day
+        scheduleDailyNotification(); // Next day
       }, targetTime - new Date());
     }
   };
