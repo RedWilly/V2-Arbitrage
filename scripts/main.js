@@ -1,18 +1,18 @@
 const TelegramBot = require("node-telegram-bot-api");
-const botToken = "Telegram_bot_Token"; // Replace with your actual Telegram bot token
-const bot = new TelegramBot(botToken, { polling: false });
 
 const { generateTriads, addPairReserves, calculateProfit, APPROX_GAS_FEE } = require("./arbUtils");
 const hre = require("hardhat");
 const { ethers, network } = require("hardhat");
-const { PIVOT_TOKEN, SUPER_ARBIT_ADDRESS, MATCHED_PAIRS_OUTPUT_FILE, MAX_GAS, MAX_TRADE_INPUT } = require("./config");
+const { PIVOT_TOKEN, SUPER_ARBIT_ADDRESS, MATCHED_PAIRS_OUTPUT_FILE, MAX_GAS, MAX_TRADE_INPUT, TELEGRAM_BOT_ID, TELEGRAM_CHANNEL } = require("./config");
+
+const bot = new TelegramBot(TELEGRAM_BOT_ID, { polling: false });
 
 const ERC20ABI = require('./ABI/ERC20.json');
 
 let execCount = 0; // Delete later...
 
 const sendTelegramNotification = (message) => {
-  bot.sendMessage("CHAT_ID", message); // Replace "CHAT_ID" with your actual Telegram chat ID
+  bot.sendMessage(TELEGRAM_CHANNEL, message); // Replace "CHAT_ID" with your actual Telegram chat ID
 };
 
 
@@ -94,41 +94,85 @@ const main = async () => {
 
   sendTelegramNotification("WDOGE Arbitrage Bot Started");
 
+  let managing = false;
+
   let findOpportunities = async function() {
-    console.log('Find opportunities triggered.');
+    if(managing) {
+      console.log('Already managing');
+      return;
+    }
+    managing = true;
+    try {
+      console.log('Find opportunities triggered.');
 
-    gasPrice = await ethers.provider.getGasPrice();
-    console.log("Current gas price:", parseFloat(ethers.utils.formatUnits(gasPrice, "gwei")), "gwei");
+      gasPrice = await ethers.provider.getGasPrice();
+      console.log("Current gas price:", parseFloat(ethers.utils.formatUnits(gasPrice, "gwei")), "gwei");
 
-    const stepSize = 50;
-    const numOfTriads = triads.length;
-    const loopLim = Math.floor(numOfTriads / stepSize);
-    console.log(`\nNumber of Triads from JSON:${numOfTriads}, Total number of batches:${loopLim}\n`);
-    let i = 0;
-    let triadsSliced;
+      const stepSize = 300;
+      const numOfTriads = triads.length;
+      const loopLim = Math.floor(numOfTriads / stepSize);
+      console.log(`\nNumber of Triads from JSON:${numOfTriads}, Total number of batches:${loopLim}\n`);
+      let i = 0;
+      let triadsSliced;
 
-    while (i <= loopLim) {
-      console.log(`Processing batch ${i + 1} of total ${loopLim + 1}`);
-      if (i != loopLim) {
-        triadsSliced = triads.slice(i * stepSize, (i + 1) * stepSize);
-      } else {
-        triadsSliced = triads.slice(i * stepSize, i * stepSize + (numOfTriads % stepSize));
+      while (i <= loopLim) {
+        console.log(`Processing batch ${i + 1} of total ${loopLim + 1}`);
+        if (i !== loopLim) {
+          triadsSliced = triads.slice(i * stepSize, (i + 1) * stepSize);
+        } else {
+          triadsSliced = triads.slice(i * stepSize, i * stepSize + (numOfTriads % stepSize));
+        }
+        const triadsWithRes = await addPairReserves(triadsSliced, router, (stepSize * 3));
+
+        const lucrPaths = calculateProfit(triadsWithRes);
+        console.log("Length of lucrative triads in current batch:", lucrPaths.length);
+        //-------------------------------------
+        //--Here comes the check/execute stuff
+        const lucrPathsPassed = await checkProfitAndExecute(lucrPaths, router, signer, gasPrice);
+        if (lucrPathsPassed.length > 0) allLucrPathsPassed = allLucrPathsPassed.concat(lucrPathsPassed);
+        console.log("Length all lucrative paths passed: ", allLucrPathsPassed.length);
+        console.log(`-------Total number of executions: ${execCount}\n`);
+        i++;
       }
-      const triadsWithRes = await addPairReserves(triadsSliced, router, (stepSize * 3));
-
-      const lucrPaths = calculateProfit(triadsWithRes);
-      console.log("Length of lucrative triads in current batch:", lucrPaths.length);
-      //-------------------------------------
-      //--Here comes the check/execute stuff
-      const lucrPathsPassed = await checkProfitAndExecute(lucrPaths, router, signer, gasPrice);
-      if (lucrPathsPassed.length > 0) allLucrPathsPassed = allLucrPathsPassed.concat(lucrPathsPassed);
-      console.log("Length all lucrative paths passed: ", allLucrPathsPassed.length);
-      console.log(`-------Total number of executions: ${execCount}\n`);
-      i++;
+      managing = false;
+    } catch(e) {
+      managing = false;
     }
   }
 
+
   pivot_token.on('Withdrawal', findOpportunities);
+
+  let totalProfitToday = 0;
+  const sendTotalProfitToday = () => {
+    const formattedTotalProfit = parseFloat(ethers.utils.formatEther(totalProfitToday));
+    const message = `Total Profit Today: ${formattedTotalProfit} WDOGE`;
+    sendTelegramNotification(message);
+    totalProfitToday = ethers.BigNumber.from(0); // ---reset the total profit to 0 after sending the notification
+  };
+
+  const scheduleDailyNotification = () => {
+    const currentTime = new Date();
+    const targetTime = new Date(currentTime);
+    targetTime.setUTCHours(23, 59, 0, 0); // --set the target time to 11:59 PM GMT+0
+
+    const timeUntilNotification = targetTime - currentTime;
+    if (timeUntilNotification > 0) {
+      setTimeout(() => {
+        sendTotalProfitToday();
+        scheduleDailyNotification(); // --reschedule for the next day
+      }, timeUntilNotification);
+    } else {
+      // --if it's already past the target time, schedule for the next day
+      targetTime.setDate(targetTime.getDate() + 1);
+      setTimeout(() => {
+        sendTotalProfitToday();
+        scheduleDailyNotification(); // --next day
+      }, targetTime - new Date());
+    }
+  };
+
+  scheduleDailyNotification();
   findOpportunities();
 };
 
