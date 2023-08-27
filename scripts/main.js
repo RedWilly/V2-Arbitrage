@@ -48,6 +48,8 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
   // execute!
   console.log("Number of triads, which passed static check: ", lucrPathsPassed.length);
   for (const path of lucrPathsPassed) {
+    // --see trade path before executing the trade
+    console.log("Executing trade path:", path.execPools.map(pool => pool.toLowerCase()));
     path.gas = "0";
     if (parseFloat(path.optimumAmountIn) < MAX_TRADE_INPUT) {
       console.log("Amount In= ", path.optimumAmountIn);
@@ -60,23 +62,26 @@ const checkProfitAndExecute = async function (lucrPaths, router, signer, gasPric
         console.log("New Profit", parseFloat(ethers.utils.formatEther(newProfit)));
         if (newProfit.gt(0)) {
           totalProfitToday = totalProfitToday.add(newProfit);
-          console.log("Total Profit Today:", parseFloat(ethers.utils.formatEther(totalProfitToday)), "WDOGE");
+          console.log("Total Profit Today:", parseFloat(ethers.utils.formatEther(totalProfitToday)), "WETH");
           await router.callStatic.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           const tx = await router.superSwap(path.execAmounts, path.execPools, startToken, { gasLimit: MAX_GAS });
           console.log("!!!! EXECUTED !!!!");
           execCount++;
           // Send a Telegram notification when a trade is executed
-          const notificationMessage = `Trade executed!\nProfit: ${parseFloat(ethers.utils.formatEther(newProfit))} WDOGE`;
+          const notificationMessage = `Trade executed!\nProfit: ${parseFloat(ethers.utils.formatEther(newProfit))} WETH`;
           sendTelegramNotification(notificationMessage);
 
           // Wait for the transaction to be mined and confirmed before proceeding
           await tx.wait(2);
+
+          // --trade was executed for path
+          console.log("Trade executed for path:", path.execPools.map(pool => pool.toLowerCase()));
         }
       } catch (error) {
         console.log(error.reason);
-        // Send a Telegram notification when an error occurs
-        //const errorMessage = `Error occurred while executing trade WDOGE:\n${error.reason}`;
-        //sendTelegramNotification(errorMessage);
+        //Send a Telegram notification when an error occurs
+        const errorMessage = `Error occurred while executing trade WETH:\n${error.reason}`;
+        sendTelegramNotification(errorMessage);
       }
     }
   }
@@ -100,12 +105,12 @@ const main = async () => {
   let triads = generateTriads(MATCHED_PAIRS_OUTPUT_FILE);
   let allLucrPathsPassed = [];
 
-  sendTelegramNotification("WDOGE Arbitrage Bot Started");
+  sendTelegramNotification("WETH Arbitrage Bot Started");
 
   let managing = false;
 
-  let findOpportunities = async function() {
-    if(managing) {
+  let findOpportunities = async function () {
+    if (managing) {
       console.log('Already managing');
       return;
     }
@@ -116,7 +121,7 @@ const main = async () => {
       gasPrice = await ethers.provider.getGasPrice();
       console.log("Current gas price:", parseFloat(ethers.utils.formatUnits(gasPrice, "gwei")), "gwei");
 
-      const stepSize = 300;
+      const stepSize = 200;
       const numOfTriads = triads.length;
       const loopLim = Math.floor(numOfTriads / stepSize);
       console.log(`\nNumber of Triads from JSON:${numOfTriads}, Total number of batches:${loopLim}\n`);
@@ -143,7 +148,7 @@ const main = async () => {
         i++;
       }
       managing = false;
-    } catch(e) {
+    } catch (e) {
       managing = false;
     }
   }
@@ -158,8 +163,9 @@ const main = async () => {
     let currentGasTokenBalance = await ethers.provider.getBalance(address);
     let usedGas = ethers.utils.formatEther(gasTokenBalance - currentGasTokenBalance);
 
-    const message = `Total Profit Today: ${formattedTotalProfit} WDOGE\nTotal Gas used: ${usedGas} WDOGE`;
-    sendTelegramNotification(message);
+    const notificationMessage = `Total Profit Today: ${formattedTotalProfit} WETH\nTotal Gas used: ${usedGas} WETH`;
+    sendTelegramNotification(notificationMessage);
+
     totalProfitToday = ethers.BigNumber.from(0); // ---reset the total profit to 0 after sending the notification
     gasTokenBalance = currentGasTokenBalance;
   };
