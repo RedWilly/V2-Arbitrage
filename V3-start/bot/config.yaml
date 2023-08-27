@@ -1,0 +1,15 @@
+# bot 配置
+chainId : 137
+rpc: https://boxi.com
+# 套利合约地址
+contractAddr: 0x0000000000000000000
+# 发起交易的私钥
+privateKey: 0x00000000000000000
+# 最低利润
+minProfit: 100
+# gas price  1 Gwei  = 10^9 Wei
+gasPrice: 300_000_000_000
+# gas limit
+gasLimit: 500000
+# 运行线程数量
+concurrency: 10
